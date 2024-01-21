@@ -1,0 +1,81 @@
+#include <lpc214x.h>
+#define bit(x) (1 << x)
+void delay_ms(unsigned int count)
+{
+ unsigned int i;
+ for (i = 0; i < count; i++)
+ ;
+}
+#define PIR (IO0PIN & (1 << 23))
+#define THRESHOLD 50 // Set the threshold value for humidity
+unsigned int dht11_data()
+{
+ unsigned int data = 0;
+ unsigned int i; // Declare the variable 'i'
+ // Send request to DHT11 sensor
+ IO0DIR |= bit(4); // Set P0.4 as output for DHT11 sensor
+ IO0CLR = bit(4); // Set the pin low to initiate communication
+ delay_ms(18); // Wait for at least 18 ms
+ IO0SET = bit(4); // Set the pin high
+ delay_ms(40); // Wait for 40 milliseconds
+ IO0DIR &= ~bit(4); // Set P0.4 as input for DHT11 sensor
+ // Wait for DHT11 response
+while (IO0PIN & bit(4))
+ ; // Wait for the pin to go low
+ while (!(IO0PIN & bit(4)))
+ ; // Wait for the pin to go high
+ while (IO0PIN & bit(4))
+ ; // Wait for the pin to go low
+ // Read humidity data from DHT11 sensor
+ for (i = 0; i <= 8; i++)
+ {
+ while (!(IO0PIN & bit(4)))
+ ; // Wait for the bit to go high
+ delay_ms(30); // Wait for 30 milliseconds
+ if (IO0PIN & bit(4))
+ {
+ // If the bit is high, set the corresponding bit in the data
+ data |= (1 << (7 - i));
+ }
+ while (IO0PIN & bit(4))
+ ; // Wait for the bit to go low
+ }
+ // Skip the next 32 bits (temperature data)
+ for (i = 0; i < 32; i++)
+ {
+ while (!(IO0PIN & bit(4)))
+ ; // Wait for the bit to go high
+ while (IO0PIN & bit(4))
+ ; // Wait for the bit to go low
+ }
+ return data;
+}
+int main()
+{
+ unsigned int humidity_integer;
+IO0DIR |= bit(4); // Set P0.4 as output for DHT11 sensor
+ IO0CLR = bit(4); // Set the pin low initially for DHT11 sensor
+ delay_ms(20); // Wait for 20 ms
+ IO0SET = bit(4); // Set the pin high to initiate communication with 
+DHT11 sensor
+ delay_ms(40); // Wait for 40 ms
+ IO0DIR &= ~bit(4); // Set P0.4 as input for DHT11 sensor
+ humidity_integer = 45; // Read the integer part of humidity
+ if (humidity_integer < THRESHOLD)
+ {
+ // If humidity is less than threshold, turn on pump pin
+ IO0SET = bit(7); // Assuming pump pin is connected to P0.7
+ }
+ else
+ {
+ // Otherwise, turn off pump pin
+ IO0CLR = bit(7); // Assuming pump pin is connected to P0.7
+ }
+ if (humidity_integer > THRESHOLD)
+ {
+ // If humidity is greater than threshold, turn off pump pin
+ IO0CLR = bit(7); // Assuming pump pin is connected to P0.7
+ }
+ delay_ms(500); // Delay for some time before next reading
+ return 0;
+}
